@@ -7,6 +7,7 @@ from qutip import (about, basis, destroy, mesolve, ptrace, qeye,
 # set a parameter to see animations in line
 from matplotlib import rc
 import qutip as qp
+import torch
 
 #生成dress数据
 def dress(wa, wb, J, tlist):
@@ -62,7 +63,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # 生成测试数据集
-import torch
+
 from torch.utils.data import Dataset
 
 class detuningDataset(Dataset):
