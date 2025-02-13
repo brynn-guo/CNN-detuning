@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 # 指定GPU
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
 
 
 #生成dress数据
@@ -71,35 +71,39 @@ def generate_detuning(width, height, wb, J):
 
 from torch.utils.data import Dataset
 
+# 改进方案：提前生成所有数据并缓存
 class detuningDataset(Dataset):
     def __init__(self, num_samples, height, width):
-        self.num_samples = num_samples
-        self.height = height
-        self.width = width
-        
-    def __len__(self):
-        return self.num_samples
+        self.data = []
+        # 预生成所有样本（可用多进程加速）
+        for _ in range(num_samples):
+            wb = np.random.uniform(0, 10*2*np.pi)
+            J = np.random.uniform(0, 20*2*np.pi)
+            image = generate_detuning(height, width, wb, J)
+            params = torch.tensor([wb, J], dtype=torch.float32)
+            self.data.append( (image, params) )
     
     def __getitem__(self, idx):
-        # 随机生成参数（示例范围）
-        wb = np.random.uniform(0, 10*2*np.pi)
-        J =  np.random.uniform(0, 20*2*np.pi)
-
-        
-        # 生成图像
-        image = generate_detuning(self.height, self.width, wb, J)
-        
-        # 转换为Tensor
-        image_tensor = torch.from_numpy(image).float().permute(0, 1)  # (C, H, W)
-        image_tensor = image_tensor.unsqueeze(0) 
-        params = torch.tensor([wb, J], dtype=torch.float32)
-        
+        image, params = self.data[idx]
+        image_tensor = torch.from_numpy(image).float().unsqueeze(0)  # (1,H,W)
         return image_tensor, params
+
+
+
 
 
 # 示例数据集
 dataset = detuningDataset(num_samples=10000, height=256, width=256)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+# dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+from torch.utils.data import DataLoader
+dataloader = DataLoader(
+    dataset,
+    batch_size=128,  # 增大批量至显存允许的最大值（测试调整）
+    shuffle=True,
+    num_workers=8,    # 设置为CPU核心数（如8）
+    pin_memory=True,  # 加速数据到GPU的传输
+    persistent_workers=True  # 保持worker进程
+)
 
 #构建网络
 import torch.nn as nn
@@ -140,7 +144,11 @@ class ParamPredictor(nn.Module):
 
 # 初始化模型
 model = ParamPredictor()
-model = ParamPredictor().to(device) 
+if torch.cuda.device_count() > 1:
+    print(f"Using {torch.cuda.device_count()} GPUs!")
+    model = nn.DataParallel(model)  # 添加并行封装
+model = model.to(device)
+
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
