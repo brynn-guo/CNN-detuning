@@ -9,6 +9,13 @@ from matplotlib import rc
 import qutip as qp
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+# 指定GPU
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+
+
 #生成dress数据
 def dress(wa, wb, J, tlist):
     
@@ -59,8 +66,6 @@ def generate_detuning(width, height, wb, J):
 	return all
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
 
 # 生成测试数据集
 
