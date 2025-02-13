@@ -58,6 +58,9 @@ def generate_detuning(width, height, wb, J):
 	return all
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 # 生成测试数据集
 import torch
 from torch.utils.data import Dataset
@@ -131,6 +134,7 @@ class ParamPredictor(nn.Module):
 
 # 初始化模型
 model = ParamPredictor()
+model = ParamPredictor().to(device) 
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -139,6 +143,10 @@ num_epochs = 20
 
 for epoch in range(num_epochs):
     for batch_idx, (images, params) in enumerate(dataloader):
+
+        images = images.to(device)
+        params = params.to(device)
+
         # 前向传播
         outputs = model(images)
         loss = criterion(outputs, params)
@@ -152,4 +160,4 @@ for epoch in range(num_epochs):
         if batch_idx % 50 == 0:
             print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx}/{len(dataloader)}], Loss: {loss.item():.4f}')
 
-torch.save(model, "detuning-v1.pth")
+torch.save(model.cpu().state_dict(), "detuning-v1.pth")
