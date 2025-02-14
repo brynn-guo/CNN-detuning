@@ -8,6 +8,7 @@ from qutip import (about, basis, destroy, mesolve, ptrace, qeye,
 from matplotlib import rc
 import qutip as qp
 import torch
+import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -68,6 +69,7 @@ def generate_detuning(width, height, wb, J):
 
 
 # 生成测试数据集
+df = pd.read_pickle('data.pkl')
 
 from torch.utils.data import Dataset
 
@@ -75,8 +77,8 @@ from torch.utils.data import Dataset
 
 class detuningDataset(Dataset):
 	def __init__(self, df):
-		self.image = df.iloc[:, 2].values  # 第三列作为输入
-		self.params = df.iloc[:, :2].values  # 第一和第二列作为输出
+		self.image = df['datas'].values  # 第三列作为输入
+		self.params = df.iloc[:, 0:2].values  # 第一和第二列作为输出
 
 	def __len__(self):
 		return len(self.image)
@@ -86,13 +88,13 @@ class detuningDataset(Dataset):
 		params = self.params[idx]
 		image_tensor = torch.from_numpy(image).float().permute(0, 1)  # (C, H, W)
 		image_tensor = image_tensor.unsqueeze(0) 
-		params = torch.tensor([wb, J], dtype=torch.float32)
+		params = torch.tensor(params, dtype=torch.float32)
 		return  image_tensor, params
 
 
 
 # 示例数据集
-dataset = detuningDataset(num_samples=10000, height=256, width=256)
+dataset = detuningDataset(df)
 # dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 from torch.utils.data import DataLoader
 dataloader = DataLoader(
