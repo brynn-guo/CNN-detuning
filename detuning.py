@@ -71,24 +71,23 @@ def generate_detuning(width, height, wb, J):
 
 from torch.utils.data import Dataset
 
-# 改进方案：提前生成所有数据并缓存
+
+
 class detuningDataset(Dataset):
-    def __init__(self, num_samples, height, width):
-        self.data = []
-        # 预生成所有样本（可用多进程加速）
-        for _ in range(num_samples):
-            wb = np.random.uniform(0, 10*2*np.pi)
-            J = np.random.uniform(0, 20*2*np.pi)
-            image = generate_detuning(height, width, wb, J)
-            params = torch.tensor([wb, J], dtype=torch.float32)
-            self.data.append( (image, params) )
-    
-    def __getitem__(self, idx):
-        image, params = self.data[idx]
-        image_tensor = torch.from_numpy(image).float().unsqueeze(0)  # (1,H,W)
-        return image_tensor, params
+	def __init__(self, df):
+		self.image = df.iloc[:, 2].values  # 第三列作为输入
+		self.params = df.iloc[:, :2].values  # 第一和第二列作为输出
 
+	def __len__(self):
+		return len(self.image)
 
+	def __getitem__(self, idx):
+		image = self.image[idx]
+		params = self.params[idx]
+		image_tensor = torch.from_numpy(image).float().permute(0, 1)  # (C, H, W)
+		image_tensor = image_tensor.unsqueeze(0) 
+		params = torch.tensor([wb, J], dtype=torch.float32)
+		return  image_tensor, params
 
 
 
